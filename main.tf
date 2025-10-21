@@ -34,6 +34,7 @@ module "blog_vpc" {
   }
 }
 
+/*
 resource "aws_instance" "blog" {
   ami                     = data.aws_ami.app_ami.id
   instance_type           = var.instance_type
@@ -45,36 +46,52 @@ resource "aws_instance" "blog" {
     Name = "HelloWorld"
   }
 }
+*/
 
-module "alb" {
+module "autoscaling" {
+  source  = "terraform-aws-modules/autoscaling/aws"
+  version = "9.0.2"
+  
+  name = "blog"
+  
+  min_size = 1 // min group of instances
+  max_size = 2 // max group of instances
+
+  vpc_zone_identifier = module.blog_vpc.public_subnets
+  target_group_arns   = module.blog_alb.target_group_arns
+  security_groups     = [module.blog_sg.security_group_id]
+
+  image_id            = data.aws_ami.app_ami.id
+  instance_type       = var.instance_type
+}
+
+module "blog_alb" {
   source            = "terraform-aws-modules/alb/aws"
+  version           = "~> 6.0"
+
+  load_balancer_type = "application"
 
   name              = "blog-alb"
   vpc_id            = module.blog_vpc.vpc_id
   subnets           = module.blog_vpc.public_subnets
   security_groups   = [module.blog_sg.security_group_id]
 
-  listeners = {
-    ex-http-https-redirect = {
-      port          = 80
-      protocol      = "HTTP"
-      redirect      = {
-        port        = "443"
-        protocol    = "HTTPS"
-        status_code = "HTTP_301"
-      }
+  target_groups = [
+    {
+      name_prefix      = "blog-"
+      backend_protocol = "HTTP"
+      backend_port     = 80
+      target_type      = "instance"
     }
-  }
+  ]
 
-  target_groups = {
-    ex-instance = {
-      name_prefix  = "blog"
-      protocol     = "HTTP"
-      port         = 80
-      target_type  = "instance"
-      target_id    = aws_instance.blog.id
+  http_tcp_listeners = [
+    {
+      port               = 80
+      protocol           = "HTTP"
+      target_group_index = 0
     }
-  }
+  ]
 
   tags = {
     Environment = "dev"
@@ -98,7 +115,7 @@ module "blog_sg" {
 
 
 # Security group manual config (not used at this point, instead using modules)
-
+/*
 resource "aws_security_group" "blog" {
   name          = "blog"
   description   = "Allow http and https in. Allow everything out"
@@ -135,3 +152,4 @@ resource "aws_security_group_rule" "blog_everything_out" {
 
   security_group_id   = aws_security_group.blog.id
 }
+*/
