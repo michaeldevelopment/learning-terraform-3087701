@@ -66,8 +66,8 @@ module "autoscaling" {
 }
 
 module "blog_alb" {
-  source            = "terraform-aws-modules/alb/aws"
-
+  source             = "terraform-aws-modules/alb/aws"
+  version            = "9.7.0"
   load_balancer_type = "application"
 
   name              = "blog-alb"
